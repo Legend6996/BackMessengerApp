@@ -1,0 +1,6 @@
+@BackMessengerApp_HostAddress = http://localhost:5051
+
+GET {{BackMessengerApp_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
