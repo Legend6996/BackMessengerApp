@@ -9,13 +9,13 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["BackMessengerApp.API.csproj", "."]
-COPY ["../BackMessengerApp.Application/BackMessengerApp.Application.csproj", "../BackMessengerApp.Application/"]
-COPY ["../BackMessengerApp.Core/BackMessengerApp.Core.csproj", "../BackMessengerApp.Core/"]
-COPY ["../BackMessengerApp.Persistence/BackMessengerApp.Persistence.csproj", "../BackMessengerApp.Persistence/"]
-RUN dotnet restore "./BackMessengerApp.API.csproj"
+COPY ["BackMessengerApp.API/BackMessengerApp.API.csproj", "BackMessengerApp.API/"]
+COPY ["BackMessengerApp.Application/BackMessengerApp.Application.csproj", "BackMessengerApp.Application/"]
+COPY ["BackMessengerApp.Core/BackMessengerApp.Core.csproj", "BackMessengerApp.Core/"]
+COPY ["BackMessengerApp.Persistence/BackMessengerApp.Persistence.csproj", "BackMessengerApp.Persistence/"]
+RUN dotnet restore "./BackMessengerApp.API/BackMessengerApp.API.csproj"
 COPY . .
-WORKDIR "/src/."
+WORKDIR "/src/BackMessengerApp.API"
 RUN dotnet build "./BackMessengerApp.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish

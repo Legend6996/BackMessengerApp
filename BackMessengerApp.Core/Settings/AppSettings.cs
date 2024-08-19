@@ -9,5 +9,7 @@ namespace BackMessengerApp.Core.Settings
 	public class AppSettings
 	{
 		public DatabaseSettings DatabaseSettings { get; set; }
+		public JwtSettings JwtSettings { get; set; }
+		public string FrontURL { get; set; }
 	}
 }
