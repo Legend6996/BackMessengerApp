@@ -2,6 +2,7 @@
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
@@ -13,6 +14,6 @@ namespace BackMessengerApp.Application.Interfaces
 	{
 		string GenerateAccessToken(User user, IEnumerable<string> roles);
 		string GenerateRefreshToken(User user);
-		Task<ClaimsIdentity?> ValidateRefreshToken(string refreshToken);
+		Task<JwtSecurityToken?> ValidateRefreshToken(string refreshToken);
 	}
 }

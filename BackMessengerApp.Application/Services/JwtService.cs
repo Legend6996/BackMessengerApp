@@ -64,19 +64,18 @@ namespace BackMessengerApp.Application.Services
 			return new JwtSecurityTokenHandler().WriteToken(token);
 		}
 
-		public async Task<ClaimsIdentity?> ValidateRefreshToken(string refreshToken)
+		public async Task<JwtSecurityToken?> ValidateRefreshToken(string refreshToken)
 		{
 			var tokenHandler = new JwtSecurityTokenHandler();
 			var validationParameters = GetValidationRefreshParameters();
-
-			//clear mapping for the correct types of claim instead of url
-			tokenHandler.InboundClaimTypeMap.Clear();
 
 			var result = await tokenHandler.ValidateTokenAsync(refreshToken, validationParameters);
 
 			if (!result.IsValid) return null;
 
-			return result.ClaimsIdentity;
+			var tokenData = tokenHandler.ReadJwtToken(refreshToken);
+
+            return tokenData;
 		}
 
 		private TokenValidationParameters GetValidationRefreshParameters()

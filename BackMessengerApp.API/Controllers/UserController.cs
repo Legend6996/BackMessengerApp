@@ -34,7 +34,7 @@ namespace BackMessengerApp.API.Controllers
 			if(!ModelState.IsValid)
 				return BadRequest(ModelState);
 
-			var result = await _userService.RegisterAsync(request.Name, request.Email, request.Password);
+			var result = await _userService.RegisterAsync(request.Name, request.UserName, request.Email, request.Password);
 
 			if(!result.IsSuccessful)
 				return BadRequest(new { text = result.Errors.FirstOrDefault() });

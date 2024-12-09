@@ -6,6 +6,7 @@ using BackMessengerApp.Core.Models;
 using Microsoft.AspNetCore.Identity;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
 
 namespace BackMessengerApp.Application.Services
@@ -30,7 +31,7 @@ namespace BackMessengerApp.Application.Services
 			{
 				Email = user.Email,
 				UserName = user.UserName,
-				Name = "",
+				Name = user.Name,
 			};
 
 			return ServiceResult<UserInfoDto>.Success(userInfoDto);
@@ -61,7 +62,7 @@ namespace BackMessengerApp.Application.Services
 			if (result == null) 
 				return ServiceResult<string>.Fail("Not valid refresh token");
 
-			var email = result.FindFirst(JwtRegisteredClaimNames.Email);
+			var email = result.Claims.First(claim => claim.Type == "email");
 			if (email == null) 
 				return ServiceResult<string>.Fail("Not valid refresh token");
 
@@ -76,7 +77,7 @@ namespace BackMessengerApp.Application.Services
 			return ServiceResult<string>.Success(newAccessToken);
 		}
 
-		public async Task<ServiceResult<Tokens>> RegisterAsync(string name, string email, string password)
+		public async Task<ServiceResult<Tokens>> RegisterAsync(string name, string userName, string email, string password)
 		{
 			var existEmail = await _userManager.FindByEmailAsync(email);
 			if (existEmail != null)
@@ -84,7 +85,8 @@ namespace BackMessengerApp.Application.Services
 
 			User newUser = new()
 			{
-				UserName = name,
+				Name = name,
+				UserName = userName,
 				Email = email,
 				CreatedAt = DateTime.UtcNow,
 			};
