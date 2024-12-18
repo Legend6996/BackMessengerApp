@@ -1,4 +1,4 @@
-﻿namespace BackMessengerApp.API.DTOs.User
+﻿namespace BackMessengerApp.API.DTOs.Auth
 {
     public class LoginRequest
     {

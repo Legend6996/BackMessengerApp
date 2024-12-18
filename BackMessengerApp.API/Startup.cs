@@ -32,6 +32,7 @@ namespace BackMessengerApp.API
 				.AddDefaultTokenProviders();
 
 			services.AddControllers();
+			services.AddHttpClient();
 			services.AddEndpointsApiExplorer();
 			services.AddSwaggerGen();
 		}

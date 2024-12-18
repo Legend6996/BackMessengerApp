@@ -12,6 +12,7 @@ namespace BackMessengerApp.Application
 		{
 			services.AddScoped<IJwtService, JwtService>();
 			services.AddScoped<IUserService, UserService>();
+			services.AddScoped<IAuthService, AuthService>();
 		}
 
 	}

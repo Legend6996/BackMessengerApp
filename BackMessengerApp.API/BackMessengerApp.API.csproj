@@ -27,4 +27,8 @@
     <ProjectReference Include="..\BackMessengerApp.Persistence\BackMessengerApp.Persistence.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="DTOs\User\" />
+  </ItemGroup>
+
 </Project>
