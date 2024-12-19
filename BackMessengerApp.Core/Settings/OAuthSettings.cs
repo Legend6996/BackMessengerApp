@@ -6,10 +6,12 @@ using System.Threading.Tasks;
 
 namespace BackMessengerApp.Core.Settings
 {
-    public class GoogleAuthSettings
+    public class OAuthSettings
     {
         public string ClientId { get; set; }
         public string ClientSecret { get; set; }
         public string RedirectUrl { get; set; }
     }
+    public class GoogleOAuthSettings : OAuthSettings { }
+    public class YandexOAuthSettings : OAuthSettings { }
 }

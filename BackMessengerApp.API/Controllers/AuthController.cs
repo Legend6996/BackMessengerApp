@@ -1,4 +1,5 @@
 ﻿using BackMessengerApp.API.DTOs.Auth;
+using BackMessengerApp.Application.Enums;
 using BackMessengerApp.Application.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -15,20 +16,19 @@ namespace BackMessengerApp.API.Controllers
             _authService = authService;
         }
 
-        [HttpGet("login-google")]
-        public IActionResult LoginGoogle()
+        [HttpGet("login/{provider}")]
+        public IActionResult RedirectOAuth(OAuthProvider provider)
         {
-            string googleLink = _authService.GetGoogleRedirectLink();
-
-            return Redirect(googleLink);
+            string redirectLink = _authService.GetOAuthRedirectLink(provider);
+            return Redirect(redirectLink);
         }
 
-        [HttpPost("login-with-google")]
-        public async Task<IActionResult> LoginWithGoogle([FromBody] string code)
+        [HttpPost("login-with/{provider}")]
+        public async Task<IActionResult> LoginWithOAuth([FromRoute] OAuthProvider provider, [FromBody] string code)
         {
-            var result = await _authService.LoginWithGoogleAsync(code);
+            var result = await _authService.LoginOAuthAsync(provider, code);
 
-            if(!result.IsSuccessful) 
+            if (!result.IsSuccessful)
                 return BadRequest(new { text = result.Errors.FirstOrDefault() });
 
             return Ok(result.Data);

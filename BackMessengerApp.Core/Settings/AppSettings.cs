@@ -10,7 +10,8 @@ namespace BackMessengerApp.Core.Settings
 	{
 		public DatabaseSettings DatabaseSettings { get; set; }
 		public JwtSettings JwtSettings { get; set; }
-		public GoogleAuthSettings GoogleAuthSettings { get; set; }
+		public GoogleOAuthSettings GoogleOAuthSettings { get; set; }
+		public YandexOAuthSettings YandexOAuthSettings { get; set; }
 		public string FrontURL { get; set; }
 	}
 }

@@ -7,7 +7,14 @@ using System.Threading.Tasks;
 
 namespace BackMessengerApp.Application.DTOs.Auth
 {
-    public class GoogleUserInfo
+
+    public interface IOAuthUserInfo
+    {
+        string Email { get; set; }
+        string Name { get; set; }
+    }
+
+    public class GoogleUserInfo : IOAuthUserInfo
     {
         [JsonPropertyName("id")]
         public string Id { get; set; }

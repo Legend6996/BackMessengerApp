@@ -1,10 +1,13 @@
 ﻿using BackMessengerApp.Application.DTOs.Auth;
+using BackMessengerApp.Application.Enums;
 using BackMessengerApp.Application.Interfaces;
 using BackMessengerApp.Application.Results.Bot.Application.Results;
 using BackMessengerApp.Core.Models;
 using BackMessengerApp.Core.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 
 namespace BackMessengerApp.Application.Services
@@ -13,25 +16,42 @@ namespace BackMessengerApp.Application.Services
     {
         private readonly IJwtService _jwtService;
         private readonly UserManager<User> _userManager;
-        private readonly IOptions<GoogleAuthSettings> _googleAuthSettings;
+        private readonly IOptions<GoogleOAuthSettings> _googleOAuthSettings;
+        private readonly IOptions<YandexOAuthSettings> _yandexOAuthSettings;
         private readonly IHttpClientFactory _httpClientFactory;
 
-        public AuthService(IJwtService jwtService, UserManager<User> userManager, IOptions<GoogleAuthSettings> googleAuthSettings, IHttpClientFactory httpClientFactory)
+        public AuthService(IJwtService jwtService, UserManager<User> userManager, IOptions<GoogleOAuthSettings> googleOAuthSettings, IHttpClientFactory httpClientFactory, IOptions<YandexOAuthSettings> yandexOAuthSettings)
         {
             _jwtService = jwtService;
             _userManager = userManager;
-            _googleAuthSettings = googleAuthSettings;
+            _googleOAuthSettings = googleOAuthSettings;
             _httpClientFactory = httpClientFactory;
+            _yandexOAuthSettings = yandexOAuthSettings;
         }
 
-        public string GetGoogleRedirectLink()
+        public string GetOAuthRedirectLink(OAuthProvider provider)
         {
-            var clientId = _googleAuthSettings.Value.ClientId;
-            var redirectUri = _googleAuthSettings.Value.RedirectUrl;
-            var scope = "openid profile email";
-            var responseType = "code";
-            var googleAuthUrl = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={clientId}&redirect_uri={redirectUri}&response_type={responseType}&scope={scope}";
-            return googleAuthUrl;
+            var settings = GetOAuthSettings(provider);
+            string scope;
+            string responseType = "code";
+            string authUrl;
+
+            switch (provider)
+            {
+                case OAuthProvider.Google:
+                    scope = "openid profile email";
+                    authUrl = $"https://accounts.google.com/o/oauth2/v2/auth?client_id={settings.ClientId}&redirect_uri={settings.RedirectUrl}&response_type={responseType}&scope={scope}";
+                    break;
+                case OAuthProvider.Yandex:
+                    scope = "login:email login:info";
+                    authUrl = $"https://oauth.yandex.ru/authorize?client_id={settings.ClientId}&redirect_uri={settings.RedirectUrl}&response_type={responseType}&scope={scope}";
+                    break;
+                default:
+                    authUrl = "";
+                    break;
+            }
+
+            return authUrl;
         }
 
         public async Task<ServiceResult<JwtTokens>> LoginAsync(string email, string password)
@@ -44,28 +64,27 @@ namespace BackMessengerApp.Application.Services
             if (!result)
                 return ServiceResult<JwtTokens>.Fail("Invalid login or password");
 
-            var jwtTokens = await GetTokensAsync(user);
+            var jwtTokens = await GetJwtTokensAsync(user);
 
             return ServiceResult<JwtTokens>.Success(jwtTokens);
-
         }
 
-        public async Task<ServiceResult<JwtTokens>> LoginWithGoogleAsync(string googleCode)
+        public async Task<ServiceResult<JwtTokens>> LoginOAuthAsync(OAuthProvider provider, string code)
         {
-            var accessToken = await GetGoogleTokenAsync(googleCode);
+            var accessToken = await GetOAuthAccessTokenAsync(provider, code);
             if(accessToken == null)
-                return ServiceResult<JwtTokens>.Fail("Failed to get Google token.");
+                return ServiceResult<JwtTokens>.Fail("Failed to get OAuth token.");
 
-            var userInfo = await GetGoogleUserInfoAsync(accessToken);
+            var userInfo = await GetOAuthUserInfoAsync(provider, accessToken);
             if (userInfo == null)
-                return ServiceResult<JwtTokens>.Fail("Failed to get Google user info.");
+                return ServiceResult<JwtTokens>.Fail("Failed to get OAuth user info.");
 
             var existUser = await _userManager.FindByEmailAsync(userInfo.Email);
 
             JwtTokens jwtTokens = new();
 
             if(existUser != null)
-                jwtTokens = await GetTokensAsync(existUser);
+                jwtTokens = await GetJwtTokensAsync(existUser);
             else
                 return await CreateUserAsync(userInfo.Name, userInfo.Email, userInfo.Email);
 
@@ -102,46 +121,91 @@ namespace BackMessengerApp.Application.Services
             return await CreateUserAsync(name, userName, email, password);
         }
 
-
-        private async Task<string?> GetGoogleTokenAsync(string googleCode)
+        private async Task<string?> GetOAuthAccessTokenAsync(OAuthProvider provider, string code)
         {
-            var clientId = _googleAuthSettings.Value.ClientId;
-            var clientSecret = _googleAuthSettings.Value.ClientSecret;
-            var redirectUri = _googleAuthSettings.Value.RedirectUrl;
-            var tokenEndpoint = "https://oauth2.googleapis.com/token";
+            var settings = GetOAuthSettings(provider);
+            string tokenEndpoint = "";
+
+            var parameters = new List<KeyValuePair<string, string>>()
+            {
+                new KeyValuePair<string, string>("code", code),
+                new KeyValuePair<string, string>("redirect_uri", settings.RedirectUrl),
+                new KeyValuePair<string, string>("grant_type", "authorization_code")
+            };
 
             var client = _httpClientFactory.CreateClient();
-            var requestContent = new FormUrlEncodedContent(new[]
-            {
-                new KeyValuePair<string, string>("code", googleCode),
-                new KeyValuePair<string, string>("client_id", clientId),
-                new KeyValuePair<string, string>("client_secret", clientSecret),
-                new KeyValuePair<string, string>("redirect_uri", redirectUri),
-                new KeyValuePair<string, string>("grant_type", "authorization_code")
-            });
 
-            var response = await client.PostAsync(tokenEndpoint, requestContent);
+            switch (provider)
+            {
+                case OAuthProvider.Google:
+                    parameters.AddRange(new[]
+                    {
+                        new KeyValuePair<string, string>("client_id", settings.ClientId),
+                        new KeyValuePair<string, string>("client_secret", settings.ClientSecret),
+                    });
+                    tokenEndpoint = "https://oauth2.googleapis.com/token";
+                    break;
+                case OAuthProvider.Yandex:
+                    var byteArray = Encoding.ASCII.GetBytes($"{settings.ClientId}:{settings.ClientSecret}");
+                    var base64String = Convert.ToBase64String(byteArray);
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", base64String);
+                    tokenEndpoint = "https://oauth.yandex.ru/token";
+                    break;
+            }
+
+            var requestFormContent = new FormUrlEncodedContent(parameters);
+
+            var response = await client.PostAsync(tokenEndpoint, requestFormContent);
             if (!response.IsSuccessStatusCode)
                 return null;
 
             var responseContent = await response.Content.ReadAsStringAsync();
             var tokenResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
-            
+
             return tokenResponse.GetProperty("access_token").GetString();
         }
 
-        private async Task<GoogleUserInfo?> GetGoogleUserInfoAsync(string accessToken)
+        private OAuthSettings GetOAuthSettings(OAuthProvider provider)
         {
-            var userInfoEndpoint = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json";
+            switch (provider)
+            {
+                case OAuthProvider.Google:
+                    return _googleOAuthSettings.Value;
+                case OAuthProvider.Yandex:
+                    return _yandexOAuthSettings.Value;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(provider), provider, null);
+            }
+        }
+
+        private async Task<IOAuthUserInfo?> GetOAuthUserInfoAsync(OAuthProvider provider, string accessToken)
+        {
+            string userInfoEndpoint = "";
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            switch (provider)
+            {
+                case OAuthProvider.Google:
+                    userInfoEndpoint = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json";
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                    break;
+                case OAuthProvider.Yandex:
+                    userInfoEndpoint = "https://login.yandex.ru/info?format=json";
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("OAuth", accessToken);
+                    break;
+            }
 
             var userInfoResponse = await client.GetAsync(userInfoEndpoint);
             if (!userInfoResponse.IsSuccessStatusCode)
                 return null;
 
             var userInfoContent = await userInfoResponse.Content.ReadAsStringAsync();
-            var userInfo = JsonSerializer.Deserialize<GoogleUserInfo>(userInfoContent);
+            IOAuthUserInfo? userInfo = provider switch
+            {
+                OAuthProvider.Google => JsonSerializer.Deserialize<GoogleUserInfo>(userInfoContent),
+                OAuthProvider.Yandex => JsonSerializer.Deserialize<YandexUserInfo>(userInfoContent),
+                _ => null
+            };
             return userInfo;
         }
 
@@ -171,12 +235,12 @@ namespace BackMessengerApp.Application.Services
                 return ServiceResult<JwtTokens>.Fail($"Failed to register {email}");
             }
 
-            var jwtTokens = await GetTokensAsync(newUser);
+            var jwtTokens = await GetJwtTokensAsync(newUser);
 
             return ServiceResult<JwtTokens>.Success( jwtTokens );
         }
 
-        private async Task<JwtTokens> GetTokensAsync(User user)
+        private async Task<JwtTokens> GetJwtTokensAsync(User user)
         {
             var roles = await _userManager.GetRolesAsync(user);
 
